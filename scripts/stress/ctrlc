@@ -1,0 +1,96 @@
+#!/usr/bin/env python
+"""Verify proper ctrl-c shutdown behavior in the CLI.
+
+S3transfer should promise that a user can Ctrl-C while within the
+transfer manager context and the process will never hang.
+
+This script makes sure that's the case.  The idea's pretty simple:
+
+* Start an s3transfer.
+* Pick a random number r, from 0-N, where N is the total transfer time.
+* Sleep for 4 seconds and trigger a keyboard interrupt.
+* Verify the process exits within some threshold of time (30 seconds for now).
+
+"""
+import argparse
+import signal
+import sys
+import subprocess
+import time
+import psutil
+import random
+
+
+def trigger_on_fail_script(fail_script):
+    if fail_script:
+        subprocess.call(fail_script, shell=True)
+
+
+def start_transfer_process(bucket):
+    p = subprocess.Popen(
+        '/Users/jamessar/Source/s3transfer/scripts/stress/driver %s' % bucket,
+        shell=True)
+    return p.pid
+
+
+def ctrlc_stress(args):
+    print("Establishing max run time...")
+    start = time.time()
+    max_value = 2
+    print("Done, max run time is: %s" % max_value)
+    iterations = 1
+    while True:
+        pid = start_transfer_process(args.bucket)
+        p = psutil.Process(pid)
+        sleep_time = random.random() * max_value
+        if sleep_time < 1:
+            sleep_time += 1
+        sys.stdout.write("Sleep time: %s\r" % sleep_time)
+        sys.stdout.flush()
+        time.sleep(sleep_time)
+        sys.stdout.write("Sending SIGINT\r")
+        sys.stdout.flush()
+        p.send_signal(signal.SIGINT)
+        start = time.time()
+        try:
+            sys.stdout.write("Waiting for process exit         \r")
+            sys.stdout.flush()
+            p.wait(timeout=args.timeout_after)
+            total = time.time() - start
+            sys.stdout.write("PASS, exited after %s seconds\r" % total)
+            sys.stdout.flush()
+        except psutil.NoSuchProcess:
+            pass
+        except psutil.TimeoutExpired:
+            print("Process failed to exit after %s seconds."
+                  % args.timeout_after)
+            import datetime
+            with open('/tmp/s3ctrlc-log', 'a') as f:
+                f.write(str(datetime.datetime.now()))
+                f.write("\n")
+            trigger_on_fail_script(args.on_fail_script)
+            raise
+        print("\nTotal iterations: %s" % iterations)
+        iterations += 1
+
+
+def main():
+    parser = argparse.ArgumentParser(usage=__doc__)
+    parser.add_argument(
+        '--timeout-after', type=float, default=30.0,
+        help=(
+            'The length of time the process must exit after a Ctrl-C'
+        )
+    )
+    parser.add_argument(
+        '-b', '--bucket',
+        help='S3 bucket to use.', required=True)
+    parser.add_argument(
+        '--on-fail-script',
+        help='Script to run on failure.  Useful for alerting.')
+    args = parser.parse_args()
+    return ctrlc_stress(args)
+
+
+if __name__ == '__main__':
+    sys.exit(main())
