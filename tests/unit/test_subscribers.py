@@ -20,15 +20,6 @@ class ExtraMethodsSubscriber(BaseSubscriber):
         return 'called extra method'
 
 
-class NotCallableSubscriber(BaseSubscriber):
-    on_done = 'foo'
-
-
-class NoKwargsSubscriber(BaseSubscriber):
-    def on_done(self):
-        pass
-
-
 class OverrideMethodSubscriber(BaseSubscriber):
     def on_queued(self, **kwargs):
         return kwargs
@@ -80,9 +71,15 @@ class TestSubscribers(unittest.TestCase):
     def test_not_callable_in_subclass_subscriber_method(self):
         with self.assertRaisesRegexp(
                 InvalidSubscriberMethodError, 'must be callable'):
-            NotCallableSubscriber()
+            class NotCallableSubscriber(BaseSubscriber):
+                on_done = 'foo'
+
 
     def test_no_kwargs_in_subclass_subscriber_method(self):
         with self.assertRaisesRegexp(
                 InvalidSubscriberMethodError, 'must accept keyword'):
-            NoKwargsSubscriber()
+            class NoKwargsSubscriber(BaseSubscriber):
+                def on_done(self):
+                    pass
+
+

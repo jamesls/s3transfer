@@ -16,6 +16,13 @@ from s3transfer.compat import accepts_kwargs
 from s3transfer.exceptions import InvalidSubscriberMethodError
 
 
+class ValidatorMeta(type):
+    def __init__(cls, name, bases, attrs):
+        super(ValidatorMeta, cls).__init__(name, bases, attrs)
+        cls._validate_subscriber_methods()
+
+
+@six.add_metaclass(ValidatorMeta)
 class BaseSubscriber(object):
     """The base subscriber class
 
@@ -27,10 +34,6 @@ class BaseSubscriber(object):
         'progress',
         'done'
     ]
-
-    def __new__(cls, *args, **kwargs):
-        cls._validate_subscriber_methods()
-        return super(BaseSubscriber, cls).__new__(cls)
 
     @classmethod
     def _validate_subscriber_methods(cls):
