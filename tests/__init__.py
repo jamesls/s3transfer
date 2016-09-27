@@ -104,7 +104,7 @@ class StreamWithError(object):
         return self._stream.read(n)
 
 
-class FileSizeProvider(object):
+class FileSizeProvider(BaseSubscriber):
     def __init__(self, file_size):
         self.file_size = file_size
 

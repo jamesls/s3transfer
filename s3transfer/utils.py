@@ -104,17 +104,12 @@ def get_callbacks(transfer_future, callback_type):
     :returns: A list of callbacks for the type specified. All callbacks are
         preinjected with the transfer future.
     """
-    callbacks = []
-    for subscriber in transfer_future.meta.call_args.subscribers:
-        callback_name = 'on_' + callback_type
-        if hasattr(subscriber, callback_name):
-            callbacks.append(
-                functools.partial(
-                    getattr(subscriber, callback_name),
-                    future=transfer_future
-                )
-            )
-    return callbacks
+    callback_name = 'on_' + callback_type
+    return [
+        functools.partial(getattr(subscriber, callback_name),
+                          future=transfer_future)
+        for subscriber in transfer_future.meta.call_args.subscribers
+    ]
 
 
 def invoke_progress_callbacks(callbacks, bytes_transferred):

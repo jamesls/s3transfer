@@ -65,12 +65,6 @@ class TestGetCallbacks(unittest.TestCase):
             [{'future': self.transfer_future}]
         )
 
-    def test_get_callbacks_for_missing_type(self):
-        callbacks = get_callbacks(self.transfer_future, 'fake_state')
-        # There should be no callbacks as the subscribers will not have the
-        # on_fake_state method
-        self.assertEqual(len(callbacks), 0)
-
 
 class TestCallArgs(unittest.TestCase):
     def test_call_args(self):
