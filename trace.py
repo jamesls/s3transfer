@@ -9,7 +9,7 @@ from s3transfer.manager import TransferManager, TransferConfig
 def run_demo(args):
     configure_trace_logs(args)
     s = botocore.session.get_session()
-    config = TransferConfig(max_in_memory_upload_chunks=args.window_size)
+    config = TransferConfig(max_in_memory_download_chunks=args.window_size)
     m = TransferManager(s.create_client('s3'), config=config)
     future = m.download(args.bucket, args.key, args.filename)
     future.result()
