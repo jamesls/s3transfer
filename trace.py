@@ -2,14 +2,15 @@ import argparse
 import logging
 
 import botocore.session
-from s3transfer.manager import TransferManager
+from s3transfer.manager import TransferManager, TransferConfig
 
 
 
 def run_demo(args):
     configure_trace_logs(args)
     s = botocore.session.get_session()
-    m = TransferManager(s.create_client('s3'))
+    config = TransferConfig(max_in_memory_upload_chunks=args.window_size)
+    m = TransferManager(s.create_client('s3'), config=config)
     future = m.download(args.bucket, args.key, args.filename)
     future.result()
 
@@ -33,6 +34,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-b', '--bucket', default='jamesls-test-sync')
     parser.add_argument('-k', '--key', default='largefile')
+    parser.add_argument('-w', '--window-size', default=10, type=int)
     parser.add_argument('-f', '--filename', default='/tmp/download')
     parser.add_argument('-t', '--trace-file')
     args = parser.parse_args()
