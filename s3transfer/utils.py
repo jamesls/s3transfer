@@ -11,7 +11,8 @@
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 import random
-import time
+import datetime
+import json
 import functools
 import math
 import os
@@ -33,6 +34,24 @@ MAX_PARTS = 10000
 MAX_SINGLE_UPLOAD_SIZE = 5 * (1024 ** 3)
 MIN_UPLOAD_CHUNKSIZE = 5 * (1024 ** 2)
 logger = logging.getLogger(__name__)
+TRACE = logging.getLogger('s3transfer.tracer')
+
+class TagTracer(object):
+    def __init__(self, sem_tag, event_type, **kwargs):
+        self.sem_tag = sem_tag
+        self.event_type = event_type
+        self.extra_kwargs = kwargs
+
+    def __str__(self):
+        self.extra_kwargs['sem_tag'] = self.sem_tag
+        self.extra_kwargs['event_type'] = self.event_type
+        s = json.dumps(self.extra_kwargs)
+        return s
+
+
+def T(*args, **kwargs):
+    record = TagTracer(*args, **kwargs)
+    TRACE.debug(record)
 
 
 def random_file_extension(num_digits=8):
@@ -600,6 +619,8 @@ class SlidingWindowSemaphore(TaskSemaphore):
 
     def acquire(self, tag, blocking=True):
         logger.debug("Acquiring %s", tag)
+        requested_time = datetime.datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S.%f")
         self._condition.acquire()
         try:
             if self._count == 0:
@@ -616,6 +637,8 @@ class SlidingWindowSemaphore(TaskSemaphore):
                 self._lowest_sequence[tag] = sequence_number
             self._tag_sequences[tag] += 1
             self._count -= 1
+            T(tag, 'acquire', sequence_number=sequence_number,
+              requested_time=requested_time)
             return sequence_number
         finally:
             self._condition.release()
@@ -635,17 +658,23 @@ class SlidingWindowSemaphore(TaskSemaphore):
                 self._count += 1
                 self._condition.notify()
                 queued = self._pending_release.get(tag, [])
+                T(tag, 'release', sequence_number=sequence_number,
+                  immediate_release=True)
                 while queued:
                     if self._lowest_sequence[tag] == queued[-1]:
-                        queued.pop()
+                        s = queued.pop()
                         self._lowest_sequence[tag] += 1
                         self._count += 1
+                        T(tag, 'release', sequence_number=s,
+                          immediate_release=True, chain_release=True)
                     else:
                         break
             elif self._lowest_sequence[tag] < sequence_number < max_sequence:
                 # We can't do anything right now because we're still waiting
                 # for the min sequence for the tag to be released.  We have
                 # to queue this for pending release.
+                T(tag, 'release', sequence_number=sequence_number,
+                  immediate_release=False)
                 self._pending_release.setdefault(
                     tag, []).append(sequence_number)
                 self._pending_release[tag].sort(reverse=True)
