@@ -18,7 +18,9 @@ RawRecord = namedtuple('RawRecord', ['timestamp', 'thread', 'message'])
 
 def graph_trace(args):
     p.grid(True)
-    p.title("Sliding Window Semaphore Acquisition and Release")
+    p.xlabel('Time')
+    p.ylabel('Sequence Number')
+    p.title("Sliding Window Semaphore Acquisition/Release")
     for tracefile in args.tracefile:
         parsed = parse_trace_file(tracefile)
         parsed = normalize_time(parsed)
@@ -35,7 +37,11 @@ def graph_trace(args):
             plot_released(parsed)
             plot_release_requests(parsed)
             plot_trigger_releases(parsed)
-    p.show()
+    p.legend()
+    if args.output_file:
+        p.savefig(args.output_file)
+    else:
+        p.show()
 
 
 def plot_acquires(parsed):
@@ -43,7 +49,7 @@ def plot_acquires(parsed):
                            key=lambda x: x.timestamp))
     x_vals = [m.timestamp for m in acquires]
     y_vals = [m.message['sequence_number'] for m in acquires]
-    plot = p.plot(x_vals, y_vals, 'b.')
+    plot = p.plot(x_vals, y_vals, 'b.', label='Acquire')
 
 
 def plot_released(parsed):
@@ -52,7 +58,7 @@ def plot_released(parsed):
     released = list(sorted(events, key=lambda x: x.timestamp))
     x_vals = [m.timestamp for m in released]
     y_vals = [m.message['sequence_number'] for m in released]
-    p.plot(x_vals, y_vals, 'r.')
+    p.plot(x_vals, y_vals, 'r.', label='Release Chain')
 
 
 def plot_release_requests(parsed):
@@ -61,7 +67,7 @@ def plot_release_requests(parsed):
     released = list(sorted(events, key=lambda x: x.timestamp))
     x_vals = [m.timestamp for m in released]
     y_vals = [m.message['sequence_number'] for m in released]
-    p.plot(x_vals, y_vals, 'g.')
+    p.plot(x_vals, y_vals, 'g.', label='Release Request')
 
 
 def plot_trigger_releases(parsed):
@@ -71,7 +77,7 @@ def plot_trigger_releases(parsed):
     released = list(sorted(events, key=lambda x: x.timestamp))
     x_vals = [m.timestamp for m in released]
     y_vals = [m.message['sequence_number'] for m in released]
-    p.plot(x_vals, y_vals, 'k.')
+    p.plot(x_vals, y_vals, 'k.', label='Release Trigger')
 
 
 def normalize_time(parsed):
@@ -122,6 +128,7 @@ def main():
     parser.add_argument('-p', '--plot-type', choices=['acquire',
                                                       'release', 'all'],
                         default='acquire')
+    parser.add_argument('-o', '--output-file', help='Save diagram to file.')
     args = parser.parse_args()
     graph_trace(args)
 
