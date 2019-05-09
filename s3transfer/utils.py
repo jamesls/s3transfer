@@ -170,6 +170,9 @@ class CallArgs(object):
         for arg, value in kwargs.items():
             setattr(self, arg, value)
 
+    def __repr__(self):
+        return '%s(%s)' % (self.__class__.__name__, self.__dict__)
+
 
 class FunctionContainer(object):
     """An object that contains a function and any args or kwargs to call it
